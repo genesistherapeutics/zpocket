@@ -34,13 +34,19 @@ INK_2 = "#52514e"
 INK_MUTED = "#898781"
 GRID = "#e1e0d9"
 BASELINE = "#c3c2b7"
+TAG_BG = "#eaf2fc"
+TAG_INK = "#1c5cab"
+
+# zPocket's test set is public, so its result can be reproduced; the competitors' sets are not.
+# Counts from the paper's Table 1: 1,275 targets (1,562 pockets) in the effective test set.
+ZPOCKET_TAG = "Open benchmark (PocketWatch)\nN = 1,275 test proteins"
 
 BAR_W = 0.28
-FIG_W, FIG_H = 6.2, 3.9  # inches; fonts are fixed in points, so a smaller figure reads larger
+FIG_W, FIG_H = 6.2, 4.3  # inches; fonts are fixed in points, so a smaller figure reads larger
 
 # Layout in inches from the figure edges, so text spacing survives figure resizes.
 TITLE_TOP, SUBTITLE_TOP, LEGEND_TOP, AXES_TOP = 0.2, 0.5, 0.67, 1.1
-AXES_BOTTOM, AXES_LEFT, AXES_RIGHT = 0.58, 0.62, 0.12
+AXES_BOTTOM, AXES_LEFT, AXES_RIGHT = 0.98, 0.62, 0.12
 GAP = 0.02  # surface gap between adjacent bars, in x data units
 CORNER_PX = 4
 
@@ -114,13 +120,26 @@ def main():
         ax.add_line(Line2D([xm, xm, xp, xp], [y - 0.025, y, y, y - 0.025], color=INK_2, lw=0.9, zorder=4))
         ax.text(i, y + 0.012, ratio_lbl, ha="center", va="bottom", fontsize=9.5, color=INK)
 
-    # Two-line group labels: name (bold) over developer (muted).
+    # Group labels: name (bold) over developer (muted), offset in points below the axis.
     ax.set_xticks(range(len(RESULTS)))
     ax.set_xticklabels([""] * len(RESULTS))
     ax.tick_params(axis="x", length=0)
+
+    def below_axis(x, dy, text, **kw):
+        ax.annotate(text, xy=(x, 0), xycoords=("data", "axes fraction"), xytext=(0, dy), textcoords="offset points", ha="center", va="top", **kw)
+
     for i, (name, dev, *_) in enumerate(RESULTS):
-        ax.text(i, -0.05, name, transform=ax.get_xaxis_transform(), ha="center", va="top", fontsize=11.5, fontweight="bold", color=INK)
-        ax.text(i, -0.13, dev, transform=ax.get_xaxis_transform(), ha="center", va="top", fontsize=8.5, color=INK_2)
+        below_axis(i, -8, name, fontsize=11.5, fontweight="bold", color=INK)
+        below_axis(i, -22, dev, fontsize=8.5, color=INK_2)
+    below_axis(
+        0,
+        -38,
+        ZPOCKET_TAG,
+        fontsize=8.5,
+        color=TAG_INK,
+        linespacing=1.35,
+        bbox=dict(boxstyle="round,pad=0.45,rounding_size=0.6", facecolor=TAG_BG, edgecolor="none"),
+    )
 
     ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
     ax.set_yticklabels(["0", "0.2", "0.4", "0.6", "0.8", "1.0"], fontsize=9)

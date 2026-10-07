@@ -4,6 +4,8 @@
 
 Pocket-identification AUPRC for zPocket alongside the cofolding-based pocket predictors in the IsoDDE and AnewDDE technical reports. Each bar shows the number its developers reported, with P2Rank as the shared reference point where one was reported.
 
+The tag under zPocket marks that its result can be reproduced: the PocketWatch test set ([huggingface.co/datasets/genesisml/PocketWatch](https://huggingface.co/datasets/genesisml/PocketWatch)) and the zPocket weights ([huggingface.co/genesisml/zPocket](https://huggingface.co/genesisml/zPocket)) are released with the paper. N = 1,275 is the number of test proteins scored (1,562 pockets), from the paper's Table 1. The IsoDDE report does not give the size of its pocket-identification test set.
+
 Regenerate with `python make_pocket_id_comparison.py` (needs matplotlib only).
 
 | Model | AUPRC | P2Rank | Source |
