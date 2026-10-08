@@ -491,13 +491,14 @@ Needs the `dev` extra (see Install).
 Nothing here needs a GPU or trunk weights. Tests that check a *property* build their own
 arrays and always run; tests that check a *count* against the published benchmark skip when
 it is unreachable (no network, cold cache). Set `POCKETWATCH_ROOT` for a local dataset tree
-and `ZPOCKET_HEADS_DIR` for local `.pt` head checkpoints.
+and `ZPOCKET_HEADS_DIR` for local `.pt` head checkpoints. A skip passes, so any run meant to
+vouch for the counts should set `POCKETWATCH_REQUIRED=1`, which makes a missing dataset fail.
 
 | file | what it pins |
 |---|---|
 | `test_eval_metrics.py` | metric properties: a perfect ranker is 1.0, a random one is the positive fraction, and **a masked residue cannot move any number** (corrupt one and every metric is unchanged) |
 | `test_discrete.py` | Kabsch recovers a known transform and never returns a reflection; linkage chains where mean-shift does not; top-N+2 ≥ top-N; a masked site is neither credited nor charged; AP charges for over-emitting |
-| `test_pocketwatch.py` | the counts, against the published numbers: 1,566 test proteins, 4.86% positives, 1,573 scored sites, 1,559 scoreable at `multichain=keep`, and **1,562 pockets over 1,275 targets** for the paper set |
+| `test_pocketwatch.py` | the counts, against the published numbers: 1,566 test proteins, 1,573 scored sites, 627,986 scored residues at 4.86% positives over the 1,279 chains scoreable at `multichain=mask`, 1,559 scoreable at `multichain=keep`, and **1,562 pockets over 1,275 targets** for the paper set |
 | `test_centroids.py` | the centroid rebuild reproduces the shipped table to 1e-5 Å — what licenses scoring localization on folds the benchmark does not ship |
 | `test_msa.py` | the merge, byte-equal against an independent transcription of the published recipe |
 | `test_fold_recipe.py` | the published recipe actually reaches `fold()` — and a knob the installed `esm` cannot accept is reported, not silently dropped |

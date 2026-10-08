@@ -4,11 +4,24 @@ The metric tests split into two kinds. Those that assert a property of a metric 
 arrays and need nothing external. Those that assert a *count* — 1,566 test proteins, 1,573 scored
 sites — are checking this code against the published benchmark, so they need it present, and are
 skipped rather than failed when it is absent (no network, no cache).
+
+A skip passes, so a run that is meant to vouch for the counts sets ``POCKETWATCH_REQUIRED=1``,
+which turns an unreachable dataset or missing folds into a failure.
 """
 
 from __future__ import annotations
 
+import os
+from typing import NoReturn
+
 import pytest
+
+
+def _unavailable(reason: str) -> NoReturn:
+    """Skip, or fail when ``POCKETWATCH_REQUIRED`` says the dataset has to be there."""
+    if os.environ.get("POCKETWATCH_REQUIRED"):
+        pytest.fail(f"{reason} (POCKETWATCH_REQUIRED is set)", pytrace=False)
+    pytest.skip(reason)
 
 
 @pytest.fixture(scope="session")
@@ -18,13 +31,11 @@ def dataset():
     Honours ``POCKETWATCH_ROOT`` for a local dataset tree; otherwise resolves from the Hub, which
     needs either a warm HuggingFace cache or network access.
     """
-    import os
-
     pw = pytest.importorskip("zpocket.data").PocketWatch(os.environ.get("POCKETWATCH_ROOT"))
     try:
         pw.labels()
     except Exception as exc:  # noqa: BLE001 - any failure to reach the data is a skip, not a bug
-        pytest.skip(f"PocketWatch not reachable: {type(exc).__name__}: {exc}")
+        _unavailable(f"PocketWatch not reachable: {type(exc).__name__}: {exc}")
     return pw
 
 
@@ -39,13 +50,11 @@ def shipped_folds(dataset):
     (train's folds ship as ``structures_train.tar``), so probing the first protein in the
     *sequences* table picks a train protein and reports a 404 as "no folds".
     """
-    import os
-
     probe = dataset.site_centroids()["normalized_uniprot_id"][0]
     try:
         path = dataset.structure_path(probe)
     except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"shipped folds not available: {type(exc).__name__}: {exc}")
+        _unavailable(f"shipped folds not available: {type(exc).__name__}: {exc}")
     if not os.path.exists(path):
-        pytest.skip("shipped folds not cached")
+        _unavailable("shipped folds not cached")
     return dataset
