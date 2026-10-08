@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zpocket"
+version = "0.1.0"
+description = "Ligand-binding pocket prediction on ESMFold2-predicted structures"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { file = "LICENSE" }
+
+dependencies = [
+    # ESMFold2 ships natively in `esm` as of 3.4, which depends on a stock `transformers`.
+    # No forks, no private git remotes: `pip install -e .` is the whole story.
+    "esm>=3.4.1",
+    # esm pins torch>=2.11,<2.12; named here because zpocket imports torch directly.
+    "torch>=2.11,<2.12",
+    "numpy>=1.26.4",
+    "huggingface-hub",
+    # The published head ships as model.safetensors + config.json, not a torch pickle.
+    "safetensors",
+
+    # The benchmark + metrics half (zpocket.data / .eval / .discrete). Light next to torch, and
+    # needed by `zpocket eval`, which is the half that runs with no GPU and no trunk weights.
+    "polars>=1.0,<2.0",
+    "scikit-learn>=1.3",
+    "scipy>=1.11",
+    # mmCIF reading for the localization metrics.
+    "gemmi",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.11.3",
+]
+
+[project.scripts]
+zpocket = "zpocket.cli:main"
+
+[tool.uv]
+package = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["zpocket*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
