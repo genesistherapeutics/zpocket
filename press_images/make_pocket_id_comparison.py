@@ -40,15 +40,18 @@ TAG_INK = "#1c5cab"
 # zPocket's test set is public, so its result can be reproduced; the competitors' sets are not.
 # Counts from the paper's Table 1: 1,275 targets (1,562 pockets) in the effective test set.
 ZPOCKET_TAG = "Open benchmark (PocketWatch)\nN = 1,275 test proteins"
+# The figure has no title, so the caveat sits under the y-axis label.
+AXIS_NOTE = "(as reported by each developer)"
 
 BAR_W = 0.28
-FIG_W, FIG_H = 6.2, 4.3  # inches; fonts are fixed in points, so a smaller figure reads larger
-
-# Layout in inches from the figure edges, so text spacing survives figure resizes.
-TITLE_TOP, SUBTITLE_TOP, LEGEND_TOP, AXES_TOP = 0.2, 0.5, 0.67, 1.1
-AXES_BOTTOM, AXES_LEFT, AXES_RIGHT = 0.98, 0.62, 0.12
 GAP = 0.02  # surface gap between adjacent bars, in x data units
 CORNER_PX = 4
+
+# Layout in inches. Fonts are fixed in points, so a smaller figure reads larger.
+# LEGEND_TOP and AXES_TOP are measured down from the top edge; AXES_HEIGHT sets how tall the bars are.
+FIG_W = 6.2
+LEGEND_TOP, AXES_TOP, AXES_HEIGHT = 0.08, 0.55, 1.45
+AXES_BOTTOM, AXES_LEFT, AXES_RIGHT = 0.98, 0.8, 0.12
 
 plt.rcParams.update(
     {
@@ -85,19 +88,17 @@ def rounded_bar(ax, x_center, height, color, y_per_x):
 
 
 def main():
-    fig = plt.figure(figsize=(FIG_W, FIG_H), facecolor=SURFACE)
+    fig_h = AXES_TOP + AXES_HEIGHT + AXES_BOTTOM
+    fig = plt.figure(figsize=(FIG_W, fig_h), facecolor=SURFACE)
     ax = fig.add_axes(
-        [
-            AXES_LEFT / FIG_W,
-            AXES_BOTTOM / FIG_H,
-            (FIG_W - AXES_LEFT - AXES_RIGHT) / FIG_W,
-            (FIG_H - AXES_TOP - AXES_BOTTOM) / FIG_H,
-        ],
+        [AXES_LEFT / FIG_W, AXES_BOTTOM / fig_h, (FIG_W - AXES_LEFT - AXES_RIGHT) / FIG_W, AXES_HEIGHT / fig_h],
         facecolor=SURFACE,
     )
     ax.set_xlim(-0.6, len(RESULTS) - 0.4)
     ax.set_ylim(0, 1.0)
 
+    # y data units per point, so labels and brackets keep fixed spacing whatever the bar height.
+    pt = 1.0 / (AXES_HEIGHT * 72)
     # Data units per pixel, so corner rounding is circular rather than elliptical.
     bbox = ax.get_window_extent()
     y_per_x = (1.0 / bbox.height) / ((ax.get_xlim()[1] - ax.get_xlim()[0]) / bbox.width)
@@ -106,19 +107,19 @@ def main():
     for i, (name, dev, model, p2rank, (model_lbl, p2_lbl), ratio_lbl) in enumerate(RESULTS):
         xm, xp = i - offset, i + offset
         rounded_bar(ax, xm, model, MODEL_COLOR, y_per_x)
-        ax.text(xm, model + 0.015, model_lbl, ha="center", va="bottom", fontsize=10, color=INK, fontweight="bold")
+        ax.text(xm, model + 2.5 * pt, model_lbl, ha="center", va="bottom", fontsize=10, color=INK, fontweight="bold")
 
         if p2rank is None:
-            ax.text(xp - BAR_W / 2 + 0.03, 0.03, "P2Rank\nnot reported", ha="left", va="bottom", fontsize=7.5, color=INK_MUTED, linespacing=1.3)
+            ax.text(xp - BAR_W / 2 + 0.03, 5 * pt, "P2Rank\nnot reported", ha="left", va="bottom", fontsize=7.5, color=INK_MUTED, linespacing=1.3)
             continue
 
         rounded_bar(ax, xp, p2rank, P2RANK_COLOR, y_per_x)
-        ax.text(xp, p2rank + 0.015, p2_lbl, ha="center", va="bottom", fontsize=10, color=INK_2)
+        ax.text(xp, p2rank + 2.5 * pt, p2_lbl, ha="center", va="bottom", fontsize=10, color=INK_2)
 
         # Bracket showing the multiple over P2Rank.
-        y = model + 0.14
-        ax.add_line(Line2D([xm, xm, xp, xp], [y - 0.025, y, y, y - 0.025], color=INK_2, lw=0.9, zorder=4))
-        ax.text(i, y + 0.012, ratio_lbl, ha="center", va="bottom", fontsize=9.5, color=INK)
+        y = model + 22 * pt
+        ax.add_line(Line2D([xm, xm, xp, xp], [y - 4 * pt, y, y, y - 4 * pt], color=INK_2, lw=0.9, zorder=4, clip_on=False))
+        ax.text(i, y + 2 * pt, ratio_lbl, ha="center", va="bottom", fontsize=9.5, color=INK, zorder=4, bbox=dict(facecolor=SURFACE, edgecolor="none", pad=1))
 
     # Group labels: name (bold) over developer (muted), offset in points below the axis.
     ax.set_xticks(range(len(RESULTS)))
@@ -144,29 +145,21 @@ def main():
     ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
     ax.set_yticklabels(["0", "0.2", "0.4", "0.6", "0.8", "1.0"], fontsize=9)
     ax.tick_params(axis="y", length=0, pad=6)
-    ax.set_ylabel("AUPRC", fontsize=10, color=INK_2, labelpad=8)
+    # Rotated text reads bottom to top, so the line "below" the label sits to its right.
+    for text, dx, kw in (("AUPRC", -47, dict(fontsize=10, color=INK_2)), (AXIS_NOTE, -33, dict(fontsize=7.5, color=INK_MUTED))):
+        ax.annotate(text, xy=(0, 0.5), xycoords="axes fraction", xytext=(dx, 0), textcoords="offset points", rotation=90, ha="center", va="center", **kw)
     ax.yaxis.grid(True, color=GRID, lw=0.8, zorder=0)
     for side in ("top", "right", "left"):
         ax.spines[side].set_visible(False)
     ax.spines["bottom"].set_color(BASELINE)
 
-    fig.text(0.5, 1 - TITLE_TOP / FIG_H, "Pocket identification from cofolding models", fontsize=14, fontweight="bold", color=INK, ha="center", va="top")
-    fig.text(
-        0.5,
-        1 - SUBTITLE_TOP / FIG_H,
-        "AUPRC for ranking ligand-binding residues on held-out proteins, as reported by each developer",
-        fontsize=9.5,
-        color=INK_2,
-        ha="center",
-        va="top",
-    )
     fig.legend(
         handles=[
             Patch(facecolor=MODEL_COLOR, label="Cofolding-based pocket model"),
             Patch(facecolor=P2RANK_COLOR, label="P2Rank on the same predicted structures"),
         ],
         loc="upper center",
-        bbox_to_anchor=(0.5, 1 - LEGEND_TOP / FIG_H),
+        bbox_to_anchor=(0.5, 1 - LEGEND_TOP / fig_h),
         ncol=2,
         frameon=False,
         fontsize=8.5,
