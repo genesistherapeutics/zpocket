@@ -1,5 +1,9 @@
 # Press images
 
+## `paper_figure1.png`
+
+Figure 1 of the zPocket paper, shown in the main README under the introduction. It is exported from the paper's PDF at 320 dpi without its caption, so regenerate it from the paper rather than editing it here. Panels B and C use the ESMFold2 trunk and `pairformer2` head that this repository ships.
+
 ## `pocket_id_comparison.{png,pdf,svg}`
 
 Pocket-identification AUPRC for zPocket alongside the cofolding-based pocket predictors in the IsoDDE and AnewDDE technical reports. Each bar shows the number its developers reported, with P2Rank as the shared reference point where one was reported.
