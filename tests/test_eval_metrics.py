@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from zpocket.data import Protein
 from zpocket.eval.metrics import (
     hit_at_1,
     pocket_auprc,
@@ -17,6 +18,7 @@ from zpocket.eval.metrics import (
     r_precision,
     summarize,
 )
+from zpocket.eval.per_pocket import score_one_protein
 
 
 def _toy(n_proteins: int = 12, length: int = 80, rate: float = 0.1, seed: int = 0):
@@ -112,6 +114,27 @@ def test_unscoreable_targets_are_skipped_not_zeroed():
     assert result.n_targets == 2
     assert result.n_targets_scored == 1
     assert result.auprc == pytest.approx(1.0)
+
+
+def test_per_pocket_keeps_unscored_sites_out_of_the_background():
+    """An unscored site's residues are neither positive nor negative for any scored pocket.
+
+    Built so that nothing else protects them: label 0 and inside the mask, which is how the
+    ``drop`` policy leaves an interface-only site. Ranking them top must not move the AUPRC.
+    """
+    length = 40
+    label = np.zeros(length, dtype=np.uint8)
+    label[0:5] = 1
+    protein = Protein("P00000", length, "A" * length, label, np.ones(length, dtype=np.uint8))
+    sites = [("scored", np.arange(0, 5), True), ("unscored", np.arange(10, 15), False)]
+    scores = label.astype(float)
+    scores[10:15] = 2.0
+
+    (row,) = score_one_protein(scores, protein, sites)
+    assert row.pocket_site_id == "scored"
+    assert row.auprc == pytest.approx(1.0)
+    assert row.n_negative == length - 10
+    assert row.n_masked_other == 5
 
 
 def test_mismatched_shapes_raise():
