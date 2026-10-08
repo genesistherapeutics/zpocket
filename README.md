@@ -1,15 +1,15 @@
+![Bar chart of pocket-identification AUPRC. zPocket scores 0.745 against P2Rank's 0.477 on the PocketWatch test set (1,275 proteins). IsoDDE reports 0.75 against P2Rank's 0.51, and AnewDDE reports 0.751.](press_images/pocket_id_comparison.png)
+
+*Each bar is the number its developer reported on their own held-out test set, so this is
+not a head-to-head benchmark. Sources and caveats are in
+[`press_images/README.md`](press_images/README.md).*
+
 # zPocket
 
 **Ligand-binding pocket prediction on predicted structures.** zPocket folds a
 single-chain protein with ESMFold2 and applies a 330k-parameter `pairformer2` head
 to the frozen pair representation `z`, producing per-residue pocket probabilities.
 These can be clustered into ranked pocket centres and evaluated on PocketWatch.
-
-![Bar chart of pocket-identification AUPRC. zPocket scores 0.745 against P2Rank's 0.477 on the PocketWatch test set (1,275 proteins). IsoDDE reports 0.75 against P2Rank's 0.51, and AnewDDE reports 0.751.](press_images/pocket_id_comparison.png)
-
-*Each bar is the number its developer reported on their own held-out test set, so this is
-not a head-to-head benchmark. Sources and caveats are in
-[`press_images/README.md`](press_images/README.md).*
 
 - Model weights: [`genesisml/zPocket`](https://huggingface.co/genesisml/zPocket)
 - Dataset: [`genesisml/PocketWatch`](https://huggingface.co/datasets/genesisml/PocketWatch)
