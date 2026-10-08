@@ -18,15 +18,15 @@ ESMFold2 is the only supported trunk. The paper also reports stronger results wi
 Protenix-v2, but that backend was removed because its weights are no longer publicly
 available.
 
-![Three-panel overview from the paper. A: a protein sequence and its MSA are folded by a frozen co-folding trunk, and a trained zPocket head turns the frozen features into a per-residue pocket probability. B: cereblon (UniProt Q96SW2), with the predicted probability painted on its ESMFold2 fold and plotted along the sequence; site S1 was already known before the training cutoff and S2 is novel and cryptic. C: per-pocket AUPRC against pocket similarity to the pre-cutoff record, where zPocket scores above P2Rank, UniSite-1D and VN-EGNN in every bin.](press_images/paper_figure1.png)
+![Three-panel overview from the paper. A: a protein sequence and its MSA are folded by a frozen co-folding trunk, and a trained zPocket head turns the frozen features into a per-residue pocket probability. B: cereblon (UniProt Q96SW2), with the predicted probability painted on its ESMFold2 fold and plotted along the sequence; site S1 was already known before the training cutoff and S2 is novel and cryptic. C: per-pocket AUPRC against pocket similarity to the pre-cutoff record, where zPocket scores above P2Rank and the PocketWatch-retrained UniSite-1D and VN-EGNN in every bin.](press_images/paper_figure1.png)
 
 *Figure 1 of the paper. **(A)** A frozen co-folding trunk folds the sequence, and a small
 head trained on its frozen features predicts a pocket probability for every residue.
 **(B)** Cereblon (UniProt Q96SW2). Site S1 was already in the pre-cutoff record, so its
 residues are masked from scoring; S2 is novel and cryptic. **(C)** Per-pocket AUPRC on the
 PocketWatch test set, binned by how much of each pocket a pre-cutoff pocket already covers.
-zPocket (ESMFold2 trunk, `pairformer2` head) leads every baseline in every bin; "pub" marks
-published weights and "PW" retraining on PocketWatch.*
+zPocket (ESMFold2 trunk, `pairformer2` head) leads every baseline in every bin; UniSite-1D
+and VN-EGNN are both retrained on PocketWatch.*
 
 ## Install
 
