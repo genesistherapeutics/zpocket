@@ -47,7 +47,7 @@ def shipped_folds(dataset):
     downloading them inside a test run is not something a test should do.
 
     The probe has to be a validation or test protein: ``structures/`` holds only those two splits
-    (train's folds ship as ``structures_train.tar``), so probing the first protein in the
+    (train's folds ship as ``structures_train.zip``), so probing the first protein in the
     *sequences* table picks a train protein and reports a 404 as "no folds".
     """
     probe = dataset.site_centroids()["normalized_uniprot_id"][0]
