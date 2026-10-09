@@ -4,15 +4,9 @@
 `zpocket fold` / `zpocket run` reproduces the features the released head was trained to
 read. Every knob can be overridden individually from the CLI.
 
-This is deliberately not `esm`'s own set of defaults, which differ on nearly every entry
-(`num_loops=20`, `num_sampling_steps=200`, `num_diffusion_samples=1`, `lm_dropout=0.3`).
-`z` is recomputed every trunk loop and the LM dropout mask is redrawn per loop, so those
-defaults produce a genuinely different feature tensor.
-
-The two MSA knobs default to ``None`` on purpose: that makes `esm` fall back to the
-checkpoint's own ``config.msa_encoder`` values, which is what the published features were
-built with. `esm`'s signature defaults (``msa_max_depth=1024``,
-``msa_column_mask_rate=0.1``) would *override* the checkpoint config instead.
+This is deliberately not `esm`'s own set of defaults, which differ on sampling and,
+since esm 3.4, on MSA and atom-attention semantics. `z` is recomputed every trunk loop,
+so those differences produce a genuinely different feature tensor.
 """
 
 from __future__ import annotations
@@ -37,6 +31,9 @@ PAPER_SAMPLING = {
     "lm_dropout": 0.25,
 }
 
+PUBLISHED_MSA_MAX_DEPTH = 16384
+PUBLISHED_MSA_COLUMN_MASK_RATE = 0.0
+
 
 @dataclass
 class ESMFold2Config:
@@ -47,6 +44,10 @@ class ESMFold2Config:
         num_diffusion_samples: Number of poses generated per input.
         use_msa: When False, the model runs single-sequence (any attached MSA is
             dropped). Default True.
+        published_checkpoint_compatibility: Reproduce the historical ESMFold2
+            runtime semantics used to train the released zPocket head. This zeroes
+            MSA deletion features, consumes the complete unmasked MSA, and uses full
+            atom attention. Default True.
 
     Sampling knobs default to the published recipe (`PAPER_SAMPLING`). Only knobs the
     installed ``esm`` actually accepts are forwarded, so this config works across esm
@@ -60,8 +61,9 @@ class ESMFold2Config:
             still applies the checkpoint's own rate.
 
     MSA subsampling:
-        msa_max_depth / msa_column_mask_rate: ``None`` (the default) defers to the
-            checkpoint's ``config.msa_encoder``, which is what the published features used.
+        msa_max_depth / msa_column_mask_rate: Explicit overrides. When either is
+            ``None``, published compatibility resolves it to 16,384 / 0.0; modern
+            esm semantics leave it unset and therefore use esm's 1,024 / 0.1 defaults.
 
     Feature-save flags:
         save_trunk_single: Persist the per-residue single representation ``s``
@@ -81,6 +83,7 @@ class ESMFold2Config:
     seed: int = 0
     num_diffusion_samples: int = 3
     use_msa: bool = True
+    published_checkpoint_compatibility: bool = True
 
     # Sampling recipe. Defaults are the published ones (PAPER_SAMPLING).
     num_loops: int = 10
@@ -92,7 +95,7 @@ class ESMFold2Config:
     # Language-model dropout. Active at inference by design; 0.25 is the published value.
     lm_dropout: float | None = 0.25
 
-    # MSA subsampling. None defers to the checkpoint's own config.msa_encoder.
+    # MSA overrides. None selects the active semantic mode's default.
     msa_max_depth: int | None = None
     msa_column_mask_rate: float | None = None
 
@@ -107,3 +110,19 @@ class ESMFold2Config:
     @property
     def save_trunk(self) -> bool:
         return self.save_trunk_single or self.save_trunk_embeddings or self.save_esmc_embeddings
+
+    @property
+    def effective_msa_max_depth(self) -> int | None:
+        if self.msa_max_depth is not None:
+            return self.msa_max_depth
+        if self.published_checkpoint_compatibility:
+            return PUBLISHED_MSA_MAX_DEPTH
+        return None
+
+    @property
+    def effective_msa_column_mask_rate(self) -> float | None:
+        if self.msa_column_mask_rate is not None:
+            return self.msa_column_mask_rate
+        if self.published_checkpoint_compatibility:
+            return PUBLISHED_MSA_COLUMN_MASK_RATE
+        return None

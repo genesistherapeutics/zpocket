@@ -116,14 +116,14 @@ _RECIPE_FLAGS = (
 def _recipe_overrides(args: argparse.Namespace) -> dict:
     """The sampling knobs the user set explicitly, ready to pass to `ESMFold2Config`."""
     overrides = {
-        name: getattr(args, name)
-        for name in _RECIPE_FLAGS
-        if getattr(args, name, None) is not None
+        name: getattr(args, name) for name in _RECIPE_FLAGS if getattr(args, name, None) is not None
     }
     if getattr(args, "seed", None) is not None:
         overrides["seed"] = args.seed
     if getattr(args, "samples", None) is not None:
         overrides["num_diffusion_samples"] = args.samples
+    if getattr(args, "modern_esm_semantics", False):
+        overrides["published_checkpoint_compatibility"] = False
     return overrides
 
 
@@ -131,13 +131,15 @@ def _describe_recipe(cfg: ESMFold2Config) -> str:
     """One line naming every knob that shapes `z` and the sampled structure.
 
     Printed on every fold so a run's provenance lands in its own log, rather than being
-    something to infer from which flags were passed. ``checkpoint`` means the knob was left
-    unset and the checkpoint's own config governs it.
+    something to infer from which flags were passed.
     """
-    depth = cfg.msa_max_depth if cfg.msa_max_depth is not None else "checkpoint"
-    col_mask = cfg.msa_column_mask_rate if cfg.msa_column_mask_rate is not None else "checkpoint"
+    mode = "published" if cfg.published_checkpoint_compatibility else "modern-esm"
+    depth = cfg.effective_msa_max_depth
+    depth = depth if depth is not None else "esm-default"
+    col_mask = cfg.effective_msa_column_mask_rate
+    col_mask = col_mask if col_mask is not None else "esm-default"
     return (
-        f"num_loops={cfg.num_loops} lm_dropout={cfg.lm_dropout} seed={cfg.seed} "
+        f"semantics={mode} num_loops={cfg.num_loops} lm_dropout={cfg.lm_dropout} seed={cfg.seed} "
         f"samples={cfg.num_diffusion_samples} steps={cfg.num_sampling_steps} "
         f"noise={cfg.noise_scale} step_scale={cfg.step_scale} "
         f"sigma_max={cfg.max_inference_sigma} "
@@ -573,14 +575,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="s",
         help="Comma-separated features to persist: s,z,esmc,distogram (default: s).",
     )
-    fold.add_argument(
-        "--seed", type=int, default=None, help="Diffusion seed."
-    )
+    fold.add_argument("--seed", type=int, default=None, help="Diffusion seed.")
     fold.add_argument("--samples", type=int, default=None, help="Diffusion samples per input.")
     fold.add_argument("--esmc-precision", default="bf16", choices=["bf16", "fp32"])
     # --- Trunk + sampling recipe. Defaults are the PUBLISHED ones (PAPER_SAMPLING), so a
     # plain invocation reproduces the features the released head reads. Any knob can be
     # overridden; None here means "use the published default".
+    fold.add_argument(
+        "--modern-esm-semantics",
+        action="store_true",
+        help="Opt out of published-checkpoint compatibility: preserve MSA deletion counts, "
+        "use esm's MSA subsampling/masking defaults, and use sliding-window atom attention.",
+    )
     fold.add_argument(
         "--num-loops",
         type=int,
@@ -607,26 +613,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--msa-max-depth",
         type=int,
         default=None,
-        help="MSA rows kept per trunk loop. Unset defers to the checkpoint's own "
-        "config.msa_encoder, which is what the published features used.",
+        help="MSA rows kept per trunk loop. Default 16384 in published compatibility mode; "
+        "unset uses esm's default with --modern-esm-semantics.",
     )
     fold.add_argument(
         "--msa-column-mask-rate",
         type=float,
         default=None,
-        help="Fraction of MSA columns masked. Unset defers to the checkpoint config.",
+        help="Fraction of MSA columns masked. Default 0 in published compatibility mode; "
+        "unset uses esm's default with --modern-esm-semantics.",
     )
 
     # ESMFold2 weight locations.
-    fold.add_argument(
-        "--model-dir", required=True, help="ESMFold2 checkpoint dir or HF repo id."
-    )
+    fold.add_argument("--model-dir", required=True, help="ESMFold2 checkpoint dir or HF repo id.")
     fold.add_argument(
         "--esmc-dir", default=None, help="ESMC-6B backbone dir or HF repo id. See `run --help`."
     )
-    fold.add_argument(
-        "--ccd", default=None, help="Path to ccd.pkl. Omit to let esm resolve it."
-    )
+    fold.add_argument("--ccd", default=None, help="Path to ccd.pkl. Omit to let esm resolve it.")
 
     predict = sub.add_parser(
         "predict",
@@ -832,6 +835,12 @@ def build_parser() -> argparse.ArgumentParser:
     # plain invocation reproduces the features the released head reads. Any knob can be
     # overridden; None here means "use the published default".
     run.add_argument(
+        "--modern-esm-semantics",
+        action="store_true",
+        help="Opt out of published-checkpoint compatibility: preserve MSA deletion counts, "
+        "use esm's MSA subsampling/masking defaults, and use sliding-window atom attention.",
+    )
+    run.add_argument(
         "--num-loops",
         type=int,
         default=None,
@@ -857,14 +866,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--msa-max-depth",
         type=int,
         default=None,
-        help="MSA rows kept per trunk loop. Unset defers to the checkpoint's own "
-        "config.msa_encoder, which is what the published features used.",
+        help="MSA rows kept per trunk loop. Default 16384 in published compatibility mode; "
+        "unset uses esm's default with --modern-esm-semantics.",
     )
     run.add_argument(
         "--msa-column-mask-rate",
         type=float,
         default=None,
-        help="Fraction of MSA columns masked. Unset defers to the checkpoint config.",
+        help="Fraction of MSA columns masked. Default 0 in published compatibility mode; "
+        "unset uses esm's default with --modern-esm-semantics.",
     )
     run.add_argument("--esmc-precision", default="bf16", choices=["bf16", "fp32"])
     run.add_argument("--model-dir", required=True, help="ESMFold2 checkpoint dir or HF repo id.")

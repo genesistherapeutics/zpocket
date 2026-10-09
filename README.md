@@ -197,6 +197,13 @@ fp32, with probability differences up to 0.010 reported in the model card. Witho
 `transformer_engine`, `xformers`, and `flash-attn`, ESMC falls back to PyTorch kernels,
 which `esm` reports can differ by a few ULP after the final LayerNorm.
 
+zPocket also enables published-checkpoint compatibility by default. The historical
+training stack discarded MSA deletion features, consumed the complete unmasked MSA,
+and used full atom attention. Current `esm` does none of those by default, so zPocket
+reproduces the historical semantics explicitly. Use `--modern-esm-semantics` only
+when you intentionally want current `esm` behavior rather than features compatible
+with the released pocket head.
+
 ### Centroids for your own folds
 
 Ground-truth centroids and structures must share a coordinate frame. The release's
@@ -253,7 +260,8 @@ published MSAs rather than `--no-msa`.
 | `--noise-scale` / `--step-scale` | 1.003 / 1.5 | Structure only |
 | `--max-inference-sigma` | 256 | Structure only |
 | `--samples` / `--seed` | 3 / 0 | Diffusion samples per input / base seed |
-| `--msa-max-depth` / `--msa-column-mask-rate` | Unset | Uses checkpoint `config.msa_encoder` |
+| `--msa-max-depth` / `--msa-column-mask-rate` | 16,384 / 0 | Full unmasked MSA used in training |
+| `--modern-esm-semantics` | Off | Opt out: preserve deletion counts, use esm MSA defaults and sliding-window atom attention |
 
 **`--lm-dropout 0` does not disable dropout:** `esm` treats zero as leaving the
 checkpoint's configured rate unchanged.

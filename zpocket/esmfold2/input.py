@@ -6,6 +6,7 @@ the same shape ``single_chain_protein_metadata`` consumes.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 from esm.utils.msa import MSA
@@ -27,19 +28,24 @@ def build_esmfold2_input_dict(sequence: str, chain_id: str = "A") -> dict[str, A
     return {"sequences": [{"type": "protein", "id": chain_id, "sequence": sequence}]}
 
 
-def msa_from_local_a3m(a3m_path: str) -> MSA:
+def msa_from_local_a3m(a3m_path: str, *, zero_deletions: bool = False) -> MSA:
     """Parse a local a3m file into an esm ``MSA`` object.
 
-    Parses the alignment the way the published features were built (``remove_insertions=True``,
-    ``max_sequences=MAX_MSA_SEQS``), reading a local path.
+    The historical esm parser discarded insertion counts after removing lowercase
+    residues. ``zero_deletions=True`` reproduces that behavior for the published
+    zPocket checkpoint; False preserves modern esm's deletion features.
     """
-    return MSA.from_a3m(a3m_path, remove_insertions=True, max_sequences=MAX_MSA_SEQS)
+    msa = MSA.from_a3m(a3m_path, remove_insertions=True, max_sequences=MAX_MSA_SEQS)
+    if zero_deletions:
+        msa = dataclasses.replace(msa, deletions=None)
+    return msa
 
 
 def build_spi(
     esmfold2_input: dict[str, Any],
     *,
     a3m_path: str | None = None,
+    zero_msa_deletions: bool = False,
 ) -> StructurePredictionInput:
     """Rebuild a ``StructurePredictionInput`` and inject a local MSA if provided.
 
@@ -53,5 +59,5 @@ def build_spi(
         # protein chain is the only supported case here.
         for spi_seq, raw in zip(spi.sequences, esmfold2_input["sequences"], strict=True):
             if raw.get("type") == "protein":
-                spi_seq.msa = msa_from_local_a3m(a3m_path)
+                spi_seq.msa = msa_from_local_a3m(a3m_path, zero_deletions=zero_msa_deletions)
     return spi
