@@ -30,8 +30,6 @@ import sys
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
-from zpocket.msa import COMBINE_POLICIES
-
 if TYPE_CHECKING:  # the real import is lazy, inside the folding dispatches
     from zpocket.esmfold2.config import ESMFold2Config
 
@@ -62,21 +60,6 @@ def _sanitize_id(record_id: str) -> str:
     import re
 
     return re.sub(r"[^A-Za-z0-9_.-]", "_", record_id) or "input"
-
-
-def _resolve_a3m(record_id: str, msa_dir: str | None, no_msa: bool) -> str | None:
-    """Locate the a3m for a record, or None for single-sequence folding."""
-    if no_msa:
-        return None
-    if msa_dir is None:
-        raise SystemExit(
-            "Provide precomputed MSAs via --msa-dir <dir with {id}.a3m>, or pass --no-msa "
-            "for single-sequence folding."
-        )
-    a3m_path = os.path.join(msa_dir, f"{record_id}.a3m")
-    if not os.path.exists(a3m_path):
-        raise SystemExit(f"No a3m for record {record_id!r} at {a3m_path!r} (use --no-msa to skip).")
-    return a3m_path
 
 
 def _parse_save(save: str) -> set[str]:
@@ -150,11 +133,14 @@ def _describe_recipe(cfg: ESMFold2Config) -> str:
 def _run_esmfold2(args: argparse.Namespace, tokens: set[str]) -> None:
     if not args.model_dir:
         raise SystemExit("--model-dir is required.")
+    if not args.no_msa and not args.msa_dir:
+        raise SystemExit("Provide pre-merged MSAs via --msa-dir, or pass --no-msa.")
 
     # Lazy import: pulls esm/torch, only needed for folding.
     from zpocket.esmfold2.config import ESMFold2Config
     from zpocket.esmfold2.fold import fold_protein
     from zpocket.esmfold2.loader import load_esmfold2
+    from zpocket.msa import MSAResolver
 
     cfg = ESMFold2Config(
         save_trunk_single="s" in tokens,
@@ -169,20 +155,20 @@ def _run_esmfold2(args: argparse.Namespace, tokens: set[str]) -> None:
     model, builder = load_esmfold2(
         args.model_dir, args.esmc_dir, args.ccd, esmc_precision=args.esmc_precision
     )
-    for record_id, sequence in parse_fasta(args.fasta):
-        sid = _sanitize_id(record_id)
-        a3m = _resolve_a3m(record_id, args.msa_dir, args.no_msa)
-        out = fold_protein(
-            model,
-            builder,
-            sequence=sequence,
-            structure_id=sid,
-            out_dir=args.out,
-            cfg=cfg,
-            model_weight_uri=args.model_dir,
-            a3m_path=a3m,
-        )
-        print(f"[esmfold2] {sid}: trunk={out['trunk_npz']} cifs={len(out['cif_paths'])}")
+    with MSAResolver(args.msa_dir, no_msa=args.no_msa) as msas:
+        for record_id, sequence in parse_fasta(args.fasta):
+            sid = _sanitize_id(record_id)
+            out = fold_protein(
+                model,
+                builder,
+                sequence=sequence,
+                structure_id=sid,
+                out_dir=args.out,
+                cfg=cfg,
+                model_weight_uri=args.model_dir,
+                a3m_path=msas.resolve(record_id),
+            )
+            print(f"[esmfold2] {sid}: trunk={out['trunk_npz']} cifs={len(out['cif_paths'])}")
 
 
 def _run_predict(args: argparse.Namespace) -> None:
@@ -212,8 +198,7 @@ def _run_predict(args: argparse.Namespace) -> None:
         out_tsv = os.path.join(args.out, f"{sid}_pocket_probs.tsv")
         with open(out_tsv, "w") as fh:
             fh.write("resnum\tprob\n")
-            for i, p in enumerate(probs, start=1):
-                fh.write(f"{i}\t{float(p):.6f}\n")
+            fh.writelines(f"{i}\t{float(p):.6f}\n" for i, p in enumerate(probs, start=1))
         print(f"[predict] {sid}: L={probs.shape[0]} npz={out_npz} tsv={out_tsv}")
 
 
@@ -391,26 +376,23 @@ def _run_run(args: argparse.Namespace) -> None:
     from zpocket.esmfold2.config import ESMFold2Config
     from zpocket.esmfold2.fold import fold_capture_z
     from zpocket.esmfold2.loader import load_esmfold2
-    from zpocket.msa import MSAResolver, pocketwatch_msa_index
+    from zpocket.msa import MSAResolver
     from zpocket.score import load_heads, save_scores, score_z
 
     if bool(args.fasta) == bool(args.split_source):
         raise SystemExit("Pass exactly one of --fasta or --split.")
+    if not args.no_msa and not args.msa_dir:
+        raise SystemExit("Provide pre-merged MSAs via --msa-dir, or pass --no-msa.")
 
     heads = load_heads([c.strip() for c in args.head.split(",") if c.strip()])
     print(f"[run] {len(heads)} head(s) loaded")
 
-    index = None
     if args.fasta:
         records = list(parse_fasta(args.fasta))
-        layout = "flat"
     else:
         dataset = _dataset(args)
         proteins = _split_proteins(args, dataset)
         records = [(p.uniprot_id, p.sequence) for p in proteins]
-        layout = args.msa_layout
-        if layout == "pocketwatch":
-            index = pocketwatch_msa_index(dataset)
     if args.shard:
         records = _take_shard(records, args.shard)
     print(f"[run] {len(records)} record(s) to fold")
@@ -426,9 +408,7 @@ def _run_run(args: argparse.Namespace) -> None:
 
     scores: dict[str, np.ndarray] = {}
     failures: list[tuple[str, str]] = []
-    with MSAResolver(
-        args.msa_dir, layout=layout, combine=args.msa_combine, index=index, no_msa=args.no_msa
-    ) as msas:
+    with MSAResolver(args.msa_dir, no_msa=args.no_msa) as msas:
         for i, (record_id, sequence) in enumerate(records, 1):
             sid = _sanitize_id(record_id)
             a3m = None
@@ -555,8 +535,7 @@ def _write_per_residue(out_dir: str, sid: str, probs) -> tuple[str, str]:
     out_tsv = os.path.join(out_dir, f"{sid}_pocket_probs.tsv")
     with open(out_tsv, "w") as fh:
         fh.write("resnum\tprob\n")
-        for i, p in enumerate(probs, start=1):
-            fh.write(f"{i}\t{float(p):.6f}\n")
+        fh.writelines(f"{i}\t{float(p):.6f}\n" for i, p in enumerate(probs, start=1))
     return out_npz, out_tsv
 
 
@@ -568,7 +547,11 @@ def build_parser() -> argparse.ArgumentParser:
     fold.add_argument("--model", default="esmfold2", choices=["esmfold2"])
     fold.add_argument("--fasta", required=True, help="Input FASTA (one record per protein).")
     fold.add_argument("--out", required=True, help="Output directory for NPZs + CIFs.")
-    fold.add_argument("--msa-dir", default=None, help="Dir with precomputed {id}.a3m files.")
+    fold.add_argument(
+        "--msa-dir",
+        default=None,
+        help="Directory containing one pre-merged <record_id>.a3m or .a3m.gz per protein.",
+    )
     fold.add_argument("--no-msa", action="store_true", help="Single-sequence folding (no MSA).")
     fold.add_argument(
         "--save",
@@ -798,24 +781,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--head", required=True, help="Head checkpoint(s), comma-separated.")
     run.add_argument("--out", required=True, help="Output directory for CIFs + per-residue probs.")
     run.add_argument("--scores-out", default=None, help="Also write one combined scores NPZ.")
-    run.add_argument("--msa-dir", default=None, help="Alignment root.")
+    run.add_argument(
+        "--msa-dir",
+        default=None,
+        help="Directory containing one pre-merged <record_id>.a3m or .a3m.gz per protein.",
+    )
     run.add_argument("--no-msa", action="store_true", help="Single-sequence folding.")
-    run.add_argument(
-        "--msa-layout",
-        default="flat",
-        choices=["flat", "pocketwatch"],
-        help="'flat' reads <dir>/<id>.a3m; 'pocketwatch' reads the shipped <hash>/<source>.a3m.gz "
-        "tree via msas_test_index.parquet.",
-    )
-    run.add_argument(
-        "--msa-combine",
-        default="genesis",
-        choices=list(COMBINE_POLICIES),
-        help="How to reduce PocketWatch's four searches to the single alignment ESMFold2 takes. "
-        "'genesis' (the default) reproduces the training-time merge the published checkpoints "
-        "saw -- uniprot first with its own 8192 slot, the rest cross-deduplicated into a further "
-        "8191. Naming a single database instead is an ablation, not a reproduction.",
-    )
     run.add_argument(
         "--shard",
         default=None,
