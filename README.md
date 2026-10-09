@@ -221,13 +221,6 @@ CA coordinates tagged by canonical position. Kabsch alignment on those contact C
 transfers the centroids into each fold's frame. Use `--compare-to-shipped` to check a
 rebuild against the release, or the dataset's independent `verify_bundle.py` verifier.
 
-### Pre-merged MSAs
-
-PocketWatch supplies the exact single-chain A3Ms used by the published feature
-jobs, one `<uniprot_id>.a3m.gz` per test protein. They are already merged,
-deduplicated, and capped at 16,384 rows. zPocket reads them directly and performs
-no runtime merge or random row truncation.
-
 ## Feature extraction
 
 Use `fold` to save frozen-trunk features for training new heads or scoring saved
