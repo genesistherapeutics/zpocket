@@ -18,6 +18,7 @@ import numpy as np
 import torch
 
 from zpocket.esmfold2.capture import capture_trunk_predictions, distogram_boundaries
+from zpocket.esmfold2.compat import published_atom_attention
 from zpocket.esmfold2.config import ESMFold2Config
 from zpocket.esmfold2.input import build_esmfold2_input_dict, build_spi
 from zpocket.esmfold2.trunk_artifacts import (
@@ -53,10 +54,12 @@ def _fold_kwargs(builder: Any, cfg: ESMFold2Config, structure_id: str) -> dict[s
         "step_scale": cfg.step_scale,
         "max_inference_sigma": cfg.max_inference_sigma,
     }
-    # None means "defer to the checkpoint's own config", which is the published behaviour, so
-    # these two are only forwarded when the user explicitly set them.
-    for name in ("lm_dropout", "msa_max_depth", "msa_column_mask_rate"):
-        value = getattr(cfg, name)
+    optional_settings = (
+        ("lm_dropout", cfg.lm_dropout),
+        ("msa_max_depth", cfg.effective_msa_max_depth),
+        ("msa_column_mask_rate", cfg.effective_msa_column_mask_rate),
+    )
+    for name, value in optional_settings:
         if value is not None:
             wanted[name] = value
 
@@ -106,9 +109,15 @@ def fold_protein(
         # Validate the supported single-chain protein mapping before paying for a fold.
         single_chain_protein_metadata(esmfold2_input)
 
-    spi = build_spi(esmfold2_input, a3m_path=a3m_path if cfg.use_msa else None)
+    spi = build_spi(
+        esmfold2_input,
+        a3m_path=a3m_path if cfg.use_msa else None,
+        zero_msa_deletions=cfg.published_checkpoint_compatibility,
+    )
 
     with ExitStack() as stack:
+        if cfg.published_checkpoint_compatibility:
+            stack.enter_context(published_atom_attention(model))
         captured = (
             stack.enter_context(
                 capture_trunk_predictions(
@@ -235,11 +244,20 @@ def fold_capture_z(
     """
     esmfold2_input = build_esmfold2_input_dict(sequence, chain_id=chain_id)
     single_chain_protein_metadata(esmfold2_input)
-    spi = build_spi(esmfold2_input, a3m_path=a3m_path if cfg.use_msa else None)
+    spi = build_spi(
+        esmfold2_input,
+        a3m_path=a3m_path if cfg.use_msa else None,
+        zero_msa_deletions=cfg.published_checkpoint_compatibility,
+    )
 
-    with capture_trunk_predictions(
-        model, capture_single=False, capture_pair=True, capture_esmc=False
-    ) as captured:
+    with ExitStack() as stack:
+        if cfg.published_checkpoint_compatibility:
+            stack.enter_context(published_atom_attention(model))
+        captured = stack.enter_context(
+            capture_trunk_predictions(
+                model, capture_single=False, capture_pair=True, capture_esmc=False
+            )
+        )
         fold_out = builder.fold(model, spi, **_fold_kwargs(builder, cfg, structure_id))
 
     z = captured.get("z")

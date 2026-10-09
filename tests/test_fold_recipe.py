@@ -11,9 +11,16 @@ either changes the prediction, not just the output structure.
 
 from __future__ import annotations
 
+import argparse
 import logging
 
-from zpocket.esmfold2.config import PAPER_SAMPLING, ESMFold2Config
+from zpocket.cli import _recipe_overrides
+from zpocket.esmfold2.config import (
+    PAPER_SAMPLING,
+    PUBLISHED_MSA_COLUMN_MASK_RATE,
+    PUBLISHED_MSA_MAX_DEPTH,
+    ESMFold2Config,
+)
 from zpocket.esmfold2.fold import _fold_kwargs
 
 
@@ -72,20 +79,23 @@ def test_published_recipe_reaches_a_builder_that_accepts_it():
     kwargs = _fold_kwargs(_FullBuilder(), ESMFold2Config(), "sid")
     for name, value in PAPER_SAMPLING.items():
         assert kwargs[name] == value, f"{name} not forwarded as {value}"
+    assert kwargs["msa_max_depth"] == PUBLISHED_MSA_MAX_DEPTH
+    assert kwargs["msa_column_mask_rate"] == PUBLISHED_MSA_COLUMN_MASK_RATE
     assert kwargs["complex_id"] == "sid"
 
 
-def test_msa_knobs_are_omitted_so_the_checkpoint_config_governs():
-    """Unset MSA knobs must not be passed at all.
-
-    Passing esm's own signature defaults would override the checkpoint's config.msa_encoder,
-    which is what the published features were built with.
-    """
-    cfg = ESMFold2Config()
+def test_modern_esm_semantics_leave_msa_knobs_unset():
+    """The explicit opt-out delegates subsampling and masking to installed esm."""
+    cfg = ESMFold2Config(published_checkpoint_compatibility=False)
     assert cfg.msa_max_depth is None and cfg.msa_column_mask_rate is None
     kwargs = _fold_kwargs(_FullBuilder(), cfg, "sid")
     assert "msa_max_depth" not in kwargs
     assert "msa_column_mask_rate" not in kwargs
+
+
+def test_modern_esm_cli_flag_disables_published_compatibility():
+    overrides = _recipe_overrides(argparse.Namespace(modern_esm_semantics=True))
+    assert overrides["published_checkpoint_compatibility"] is False
 
 
 def test_explicitly_set_msa_knobs_are_forwarded():
