@@ -146,18 +146,18 @@ comparing with the paper table. The released ESMFold2 head is `pw1g0` (balanced 
 ### Fold, score, and evaluate
 
 ```bash
-# Download the test MSAs (9.7 GiB) and extract into work/.
+# Download the pre-merged test MSAs and extract into work/.
 mkdir -p work
 huggingface-cli download genesisml/PocketWatch msas_test.tar \
     --repo-type dataset --local-dir dl/
 tar -xf dl/msas_test.tar -C work/
 
-# --msa-dir is the extraction root; the index uses msas_test/<hash> folders.
+# The archive contains one msas_test/<uniprot_id>.a3m.gz per protein.
 # run uses the published folding defaults and does not persist z.
 zpocket run --split-source --split test \
     --head weights/zpocket/model.safetensors \
     --model-dir weights/esmfold2 --esmc-dir weights/esmc-6b --ccd weights/esmfold2/ccd.pkl \
-    --msa-dir work/ --msa-layout pocketwatch --msa-combine genesis \
+    --msa-dir work/msas_test/ \
     --out folds/ --scores-out scores.npz
 
 # Evaluate with the release's ESMFold2 structures and matching shipped centroids.
@@ -221,20 +221,12 @@ CA coordinates tagged by canonical position. Kabsch alignment on those contact C
 transfers the centroids into each fold's frame. Use `--compare-to-shipped` to check a
 rebuild against the release, or the dataset's independent `verify_bundle.py` verifier.
 
-### MSA merge
+### Pre-merged MSAs
 
-PocketWatch supplies four alignments per protein; ESMFold2 takes one per chain.
-`--msa-combine genesis` is the default and reproduces the training-time merge in
-`feature_provenance.msa.merge_recipe`:
-
-1. Process `uniprot`, `uniref90`, `reduced_bfd`, then `mgnify`.
-2. Deduplicate UniProt within itself, separately from the cross-database set.
-3. Cap UniProt at 8,192 sequences and the other databases at 8,191, independently;
-   unused UniProt slots are not transferred.
-4. Apply first-wins deduplication to the assembled list, keeping UniProt copies.
-   Cross-block duplicates still consumed slots before this final pass.
-
-Selecting one database, such as `--msa-combine uniref90`, is an ablation.
+PocketWatch supplies the exact single-chain A3Ms used by the published feature
+jobs, one `<uniprot_id>.a3m.gz` per test protein. They are already merged,
+deduplicated, and capped at 16,384 rows. zPocket reads them directly and performs
+no runtime merge or random row truncation.
 
 ## Feature extraction
 
