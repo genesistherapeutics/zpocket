@@ -285,6 +285,11 @@ TSV with 1-based `resnum` and `prob`. Heads load from either `model.safetensors`
 ```bibtex
 @misc{portnoi_zpocket,
   title = {{zPocket}: Better Pocket Finding with Frozen Co-folding Features},
-  author = {Portnoi, Tally and Keys, Allison M and DiFrancesco, Benjamin R and Gruver, Nate}
+  author = {Portnoi, Tally and Keys, Allison M and DiFrancesco, Benjamin R and Gruver, Nate},
+  year = {2026},
+  eprint = {2610.17696},
+  archivePrefix = {arXiv},
+  primaryClass = {q-bio.BM},
+  url = {https://arxiv.org/abs/2610.17696}
 }
 ```
