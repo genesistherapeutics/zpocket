@@ -17,16 +17,22 @@ from matplotlib.path import Path as MplPath
 OUT_DIR = Path(__file__).resolve().parent
 STEM = "pocket_id_comparison"
 
-# (name, developer, model AUPRC, P2Rank AUPRC or None, value labels as reported, ratio label)
-# zPocket's ratio is 0.745 / 0.477 = 1.56; it is labelled "~1.5x" to read as on par with IsoDDE's
-# reported 1.5x rather than as a superiority claim across non-comparable test sets.
+# (name, developer, model AUPRC, P2Rank AUPRC or None, value labels as reported, ratio label,
+#  secondary bar or None)
+# The ratio bracket spans the released ESMFold2 model and P2Rank: 0.745 / 0.477 = 1.56, labelled
+# "~1.5x" to read as on par with IsoDDE's reported 1.5x rather than as a superiority claim across
+# non-comparable test sets. The secondary bar is an internal trunk shown for context only: it is
+# drawn in a lighter shade and carries no bracket, so it does not compete with the released bar.
 RESULTS = [
-    ("zPocket", "Genesis · ESMFold2 trunk", 0.745, 0.477, ("0.745", "0.477"), "~1.5× P2Rank"),
-    ("IsoDDE", "Isomorphic Labs", 0.75, 0.51, ("0.75", "0.51"), "1.5× P2Rank"),
-    ("AnewDDE", "Anew Labs", 0.751, None, ("0.751", None), None),
+    ("zPocket", "Genesis", 0.745, 0.477, ("0.745", "0.477"), "~1.5× P2Rank",
+     (0.764, "0.764", "Pearl")),
+    ("IsoDDE", "Isomorphic Labs", 0.75, 0.51, ("0.75", "0.51"), "1.5× P2Rank", None),
+    ("AnewDDE", "Anew Labs", 0.751, None, ("0.751", None), None, None),
 ]
 
 MODEL_COLOR = "#2a78d6"
+# Deliberately low-contrast: the internal-trunk bar is context, not the headline.
+SECONDARY_COLOR = "#aecbee"
 P2RANK_COLOR = "#898781"
 SURFACE = "#ffffff"
 INK = "#0b0b0b"
@@ -49,7 +55,7 @@ CORNER_PX = 4
 
 # Layout in inches. Fonts are fixed in points, so a smaller figure reads larger.
 # LEGEND_TOP and AXES_TOP are measured down from the top edge; AXES_HEIGHT sets how tall the bars are.
-FIG_W = 6.2
+FIG_W = 7.4
 LEGEND_TOP, AXES_TOP, AXES_HEIGHT = 0.08, 0.55, 1.45
 AXES_BOTTOM, AXES_LEFT, AXES_RIGHT = 0.98, 0.8, 0.12
 
@@ -94,7 +100,7 @@ def main():
         [AXES_LEFT / FIG_W, AXES_BOTTOM / fig_h, (FIG_W - AXES_LEFT - AXES_RIGHT) / FIG_W, AXES_HEIGHT / fig_h],
         facecolor=SURFACE,
     )
-    ax.set_xlim(-0.6, len(RESULTS) - 0.4)
+    ax.set_xlim(-0.75, len(RESULTS) - 0.4)  # the zPocket group is three bars wide
     ax.set_ylim(0, 1.0)
 
     # y data units per point, so labels and brackets keep fixed spacing whatever the bar height.
@@ -104,10 +110,23 @@ def main():
     y_per_x = (1.0 / bbox.height) / ((ax.get_xlim()[1] - ax.get_xlim()[0]) / bbox.width)
 
     offset = (BAR_W + GAP) / 2
-    for i, (name, dev, model, p2rank, (model_lbl, p2_lbl), ratio_lbl) in enumerate(RESULTS):
-        xm, xp = i - offset, i + offset
+    step = BAR_W + GAP
+    for i, (name, dev, model, p2rank, (model_lbl, p2_lbl), ratio_lbl, secondary) in enumerate(RESULTS):
+        # A group with a secondary bar is three wide and stays centred on the tick, so the released
+        # model keeps the middle slot and the bracket below still spans it and P2Rank.
+        xm, xp = (i, i + step) if secondary else (i - offset, i + offset)
+        if secondary:
+            value, value_lbl, bar_lbl = secondary
+            xs = i - step
+            rounded_bar(ax, xs, value, SECONDARY_COLOR, y_per_x)
+            ax.text(xs, value + 2.5 * pt, value_lbl, ha="center", va="bottom", fontsize=10, color=INK_2)
+            # Trunk name inside the bar: naming the two model bars is what distinguishes them, and
+            # putting it inside avoids a second row of text under the axis.
+            ax.text(xs, 6 * pt, bar_lbl, ha="center", va="bottom", fontsize=7.5, color=INK_2, zorder=4)
         rounded_bar(ax, xm, model, MODEL_COLOR, y_per_x)
         ax.text(xm, model + 2.5 * pt, model_lbl, ha="center", va="bottom", fontsize=10, color=INK, fontweight="bold")
+        if secondary:
+            ax.text(xm, 6 * pt, "ESMFold2", ha="center", va="bottom", fontsize=7.5, color=SURFACE, zorder=4)
 
         if p2rank is None:
             ax.text(xp - BAR_W / 2 + 0.03, 5 * pt, "P2Rank\nnot reported", ha="left", va="bottom", fontsize=7.5, color=INK_MUTED, linespacing=1.3)
@@ -119,7 +138,7 @@ def main():
         # Bracket showing the multiple over P2Rank.
         y = model + 22 * pt
         ax.add_line(Line2D([xm, xm, xp, xp], [y - 4 * pt, y, y, y - 4 * pt], color=INK_2, lw=0.9, zorder=4, clip_on=False))
-        ax.text(i, y + 2 * pt, ratio_lbl, ha="center", va="bottom", fontsize=9.5, color=INK, zorder=4, bbox=dict(facecolor=SURFACE, edgecolor="none", pad=1))
+        ax.text((xm + xp) / 2, y + 2 * pt, ratio_lbl, ha="center", va="bottom", fontsize=9.5, color=INK, zorder=4, bbox=dict(facecolor=SURFACE, edgecolor="none", pad=1))
 
     # Group labels: name (bold) over developer (muted), offset in points below the axis.
     ax.set_xticks(range(len(RESULTS)))

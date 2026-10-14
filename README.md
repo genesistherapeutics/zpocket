@@ -1,8 +1,9 @@
-![Bar chart of pocket-identification AUPRC. zPocket scores 0.745 against P2Rank's 0.477 on the PocketWatch test set (1,275 proteins). IsoDDE reports 0.75 against P2Rank's 0.51, and AnewDDE reports 0.751.](press_images/pocket_id_comparison.png)
+![Bar chart of pocket-identification AUPRC. zPocket on the released ESMFold2 trunk scores 0.745 against P2Rank's 0.477 on the PocketWatch test set (1,275 proteins); a lighter bar beside it shows 0.764 for an internal Pearl trunk that is not part of this release. IsoDDE reports 0.75 against P2Rank's 0.51, and AnewDDE reports 0.751.](press_images/pocket_id_comparison.png)
 
-*Each bar is the number its developer reported on their own held-out test set, so this is
-not a head-to-head benchmark. Sources and caveats are in
-[`press_images/README.md`](press_images/README.md).*
+*The IsoDDE and AnewDDE bars are the numbers their developers reported on their own held-out
+test sets, so this is not a head-to-head benchmark. The two zPocket bars are measured on the
+PocketWatch test set; the lighter one uses an internal trunk that is not part of this release.
+Sources and caveats are in [`press_images/README.md`](press_images/README.md).*
 
 # zPocket
 
