@@ -11,6 +11,7 @@ single-chain protein with ESMFold2 and applies a 330k-parameter `pairformer2` he
 to the frozen pair representation `z`, producing per-residue pocket probabilities.
 These can be clustered into ranked pocket centres and evaluated on PocketWatch.
 
+- Pre-print: [`arxiv`](https://arxiv.org/abs/2610.17696)
 - Model weights: [`genesisml/zPocket`](https://huggingface.co/genesisml/zPocket)
 - Dataset: [`genesisml/PocketWatch`](https://huggingface.co/datasets/genesisml/PocketWatch)
 
