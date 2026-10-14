@@ -15,7 +15,7 @@ Regenerate with `python make_pocket_id_comparison.py` (needs matplotlib only).
 | Model | AUPRC | P2Rank | Source |
 |---|---|---|---|
 | zPocket (ESMFold2 trunk, `pairformer2` head) | 0.745 | 0.477 | zPocket paper, Table 1: per-target AUPRC on the PocketWatch test set (1,275 targets, 1,562 pockets) |
-| zPocket (Pearl trunk, `pairformer2` head) | 0.764 | 0.477 | Internal measurement on the same 1,275 targets and the same protocol. **Not in the release** — see below |
+| zPocket (Pearl trunk, `pairformer2` head) | 0.764 | not reported | Internal measurement on the same 1,275 targets and the same protocol. **Not in the release** — see below |
 | IsoDDE | 0.75 | 0.51 | IsoDDE technical report (Isomorphic Labs, Feb 2026), Fig. 11 (left) |
 | AnewDDE | 0.751 | not reported | [AnewDDE announcement](https://anewbt.com/news/anewdde-agentic-drug-discovery-engine/) (Anew Labs, Sep 2026): "AnewFold reaches an overall AUPRC of 0.751, including 0.663 for cryptic pockets and 0.755 for non-cryptic pockets" |
 
