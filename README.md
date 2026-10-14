@@ -289,7 +289,7 @@ TSV with 1-based `resnum` and `prob`. Heads load from either `model.safetensors`
   year = {2026},
   eprint = {2610.17696},
   archivePrefix = {arXiv},
-  primaryClass = {q-bio.BM},
+  primaryClass = {cs.LG},
   url = {https://arxiv.org/abs/2610.17696}
 }
 ```
