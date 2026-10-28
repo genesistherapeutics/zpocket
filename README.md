@@ -15,6 +15,7 @@ These can be clustered into ranked pocket centres and evaluated on PocketWatch.
 - Pre-print: [`arxiv`](https://arxiv.org/abs/2610.17696)
 - Model weights: [`genesisml/zPocket`](https://huggingface.co/genesisml/zPocket)
 - Dataset: [`genesisml/PocketWatch`](https://huggingface.co/datasets/genesisml/PocketWatch)
+- Proteome predictions: [`genesisml/zPocket-human-proteome`](https://huggingface.co/datasets/genesisml/zPocket-human-proteome)
 
 ESMFold2 is the only supported trunk. The paper also reports stronger results with
 Protenix-v2, but that backend was removed because its weights are no longer publicly
@@ -279,6 +280,31 @@ zpocket predict --head head_a.pt,head_b.pt --features out/*.npz --out preds/
 Outputs are `<npz basename>_pocket_probs.npz` (`probs`, shape `(L,)`) and a matching
 TSV with 1-based `resnum` and `prob`. Heads load from either `model.safetensors` plus
 `config.json` or `.pt` training checkpoints, with strict state-dict loading.
+
+## Human proteome scan
+
+Pre-computed predictions for the reviewed human proteome (UniProt UP000005640,
+20,092 proteins) are published separately as
+[`genesisml/zPocket-human-proteome`](https://huggingface.co/datasets/genesisml/zPocket-human-proteome):
+per-residue logits, Cα coordinates, and 21,646 decoded pockets over 17,527 proteins.
+Because the fold digests ship alongside the scores, the whole proteome re-decodes on
+CPU in minutes at any threshold — the decoder settings are a starting point, not a
+tuned optimum.
+
+```python
+from datasets import load_dataset
+pockets = load_dataset("genesisml/zPocket-human-proteome", "pockets", split="train")
+```
+
+Two things to read before using it. Each protein carries a `head_split` field recording
+its membership in the head's training split; report anything you measure stratified by
+it, and lead with `unseen`. And the accompanying `detector_proposals/` table is **not a
+baseline** — fpocket, P2Rank and Lacuna supplied the proposals, but each detector's own
+score was discarded when they were re-ranked by this head, so the file cannot support a
+method-vs-method comparison. Its dataset card spells both out.
+
+That scan was produced with a different trunk from the one in this repository, so
+running this code will not reproduce it exactly.
 
 ## Citation
 
